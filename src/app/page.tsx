@@ -99,31 +99,70 @@ function HomeClient() {
         }
 
         // 并行获取热门电影、热门剧集和热门综艺
-        const [moviesData, tvShowsData, varietyShowsData, bangumiCalendarData] =
-          await Promise.all([
-            getDoubanCategories({
-              kind: 'movie',
-              category: '热门',
-              type: '全部',
-            }),
-            getDoubanCategories({ kind: 'tv', category: 'tv', type: 'tv' }),
-            getDoubanCategories({ kind: 'tv', category: 'show', type: 'show' }),
-            GetBangumiCalendarData(),
-          ]);
+        // 使用 Promise.allSettled 来保证单个请求失败不会阻塞其他请求
+        const promises = [
+          getDoubanCategories({
+            kind: 'movie',
+            category: '热门',
+            type: '全部',
+          }),
+          getDoubanCategories({ kind: 'tv', category: 'tv', type: 'tv' }),
+          getDoubanCategories({ kind: 'tv', category: 'show', type: 'show' }),
+          GetBangumiCalendarData(),
+        ];
 
-        if (moviesData.code === 200) {
-          setHotMovies(moviesData.list);
+        const results = await Promise.allSettled(promises);
+        const [moviesRes, tvRes, varietyRes, bangumiRes] = results;
+
+        // 处理 movies
+        if (moviesRes.status === 'fulfilled') {
+          const moviesData = moviesRes.value as any;
+          if (moviesData?.code === 200) {
+            setHotMovies(moviesData.list);
+          } else {
+            console.warn('获取热门电影返回非200：', moviesData);
+          }
+        } else {
+          console.warn('获取热门电影失败：', moviesRes.reason ?? moviesRes);
         }
 
-        if (tvShowsData.code === 200) {
-          setHotTvShows(tvShowsData.list);
+        // 处理 tv shows
+        if (tvRes.status === 'fulfilled') {
+          const tvShowsData = tvRes.value as any;
+          if (tvShowsData?.code === 200) {
+            setHotTvShows(tvShowsData.list);
+          } else {
+            console.warn('获取热门剧集返回非200：', tvShowsData);
+          }
+        } else {
+          console.warn('获取热门剧集失败：', tvRes.reason ?? tvRes);
         }
 
-        if (varietyShowsData.code === 200) {
-          setHotVarietyShows(varietyShowsData.list);
+        // 处理 variety shows
+        if (varietyRes.status === 'fulfilled') {
+          const varietyShowsData = varietyRes.value as any;
+          if (varietyShowsData?.code === 200) {
+            setHotVarietyShows(varietyShowsData.list);
+          } else {
+            console.warn('获取热门综艺返回非200：', varietyShowsData);
+          }
+        } else {
+          console.warn('获取热门综艺失败：', varietyRes.reason ?? varietyRes);
         }
 
-        setBangumiCalendarData(bangumiCalendarData);
+        // 处理 bangumi 日历数据（非关键路径）
+        if (bangumiRes.status === 'fulfilled') {
+          try {
+            const bangumiData = bangumiRes.value as BangumiCalendarData[];
+            setBangumiCalendarData(bangumiData || []);
+          } catch (e) {
+            console.warn('解析 Bangumi 日历数据失败：', e);
+            setBangumiCalendarData([]);
+          }
+        } else {
+          console.warn('获取 Bangumi 日历失败（已忽略）：', bangumiRes.reason ?? bangumiRes);
+          setBangumiCalendarData([]);
+        }
       } catch (error) {
         console.error('获取推荐数据失败:', error);
       } finally {
@@ -531,7 +570,7 @@ function HomeClient() {
             </div>
             <button
               onClick={() => handleCloseAnnouncement(announcement)}
-              className='w-full rounded-lg bg-gradient-to-r from-green-600 to-green-700 px-4 py-3 text-white font-medium shadow-md hover:shadow-lg hover:from-green-700 hover:to-green-800 dark:from-green-600 dark:to-green-700 dark:hover:from-green-700 dark:hover:to-green-800 transition-all duration-300 transform hover:-translate-y-0.5'
+              className='w-full rounded-lg bg-gradient-to-r from-green-600 to-green-700 px-4 py-3 text-white font-medium shadow-md hover:shadow-lg hover:from-green-700 hover:to-green-800 dark:fro[...]
             >
               我知道了
             </button>
